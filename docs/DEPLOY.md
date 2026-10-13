@@ -48,24 +48,9 @@
 
 Ожидаемо: `R` (running).
 
-## Способ 2: через Docker Hub
-
-### 1. Запушить образ
-
-```bash
-docker buildx build --platform linux/arm/v7 -t YOUR_USERNAME/mikrotik-panel:armv7 --push .
-```
-
-### 2. На роутере
-
-```
-/container add remote-image=YOUR_USERNAME/mikrotik-panel:armv7 interface=veth1 root-dir=disk1/panel envlist=panel-env
-/container start [find where name="panel"]
-```
-
 ⚠️ **RouterOS сам скачает образ** — флешка не нужна.
 
-## Способ 3: через HTTP-сервер
+## Способ 2: через HTTP-сервер
 
 ### 1. На ПК — раздать файл
 
