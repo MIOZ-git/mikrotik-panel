@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="theme-color" content="#0f172a">
+<title>MikroTik Panel</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; font-size: 14px; }
+  .hidden { display: none !important; }
+
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .login-box { background: #1e293b; padding: 32px 24px; border-radius: 16px; width: 100%; max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .login-box h1 { font-size: 22px; margin-bottom: 8px; color: #60a5fa; }
+  .login-box p { color: #94a3b8; margin-bottom: 24px; font-size: 14px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+  .field input { width: 100%; padding: 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; font-size: 16px; }
+  .field input:focus { outline: none; border-color: #3b82f6; }
+  .btn { padding: 14px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 500; background: #3b82f6; color: white; width: 100%; }
+  .btn:hover { background: #2563eb; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .error { color: #ef4444; font-size: 13px; margin-top: 12px; min-height: 18px; }
+
+  #panel-screen { padding: 16px; max-width: 1200px; margin: 0 auto; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 8px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; color: #60a5fa; flex-shrink: 0; }
+  .user-info { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex-grow: 1; }
+  .user-info #current-user { font-size: 13px; color: #94a3b8; padding: 6px 0; }
+
+  .ping-indicator { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; padding: 5px 8px; background: #1e293b; border-radius: 6px; }
+  .ping-dot { width: 7px; height: 7px; border-radius: 50%; background: #64748b; flex-shrink: 0; }
+  .ping-dot.up { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .ping-dot.down { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+
+  .btn-sm { padding: 10px 14px; font-size: 13px; border: 1px solid #334155; background: transparent; color: #e2e8f0; border-radius: 6px; cursor: pointer; min-height: 40px; }
+  .btn-sm:hover { background: #1e293b; }
+  .btn-sm:active { transform: scale(0.97); }
+  .btn-danger { border-color: #ef4444; color: #fca5a5; }
+  .btn-danger:hover { background: #7f1d1d; }
+
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid #334155; margin-bottom: 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { padding: 12px 18px; cursor: pointer; color: #94a3b8; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; flex-shrink: 0; }
+  .tab:hover { color: #e2e8f0; }
+  .tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .card { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { color: #94a3b8; margin-bottom: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; }
+
+  .charts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .chart-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .chart-circle { width: 100px; height: 100px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .chart-circle-inner { width: 76px; height: 76px; border-radius: 50%; background: #1e293b; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  .chart-value { font-size: 18px; font-weight: 600; }
+  .chart-label { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+  .chart-sub { font-size: 11px; color: #64748b; text-align: center; line-height: 1.3; }
+
+  .wan-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .wan-card { padding: 16px; border-radius: 12px; border: 2px solid #334155; background: #0f172a; transition: all 0.2s; }
+  .wan-card.active { border-color: #22c55e; background: #052e16; }
+  .wan-card.reserve { border-color: #3b82f6; background: #0c1e3a; }
+  .wan-card.down { border-color: #ef4444; background: #2a0a0a; }
+  .wan-card.notset { border-color: #334155; background: #1e293b; opacity: 0.6; }
+  .wan-card h3 { font-size: 15px; margin-bottom: 8px; display: flex; align-items: center; }
+  .wan-card .status-text { font-size: 13px; margin-bottom: 8px; font-weight: 500; }
+  .wan-card .wan-detail { font-size: 12px; color: #94a3b8; margin-top: 3px; word-break: break-all; }
+  .wan-card button { margin-top: 12px; padding: 12px 16px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; width: 100%; min-height: 44px; }
+  .wan-card button:hover { background: #2563eb; }
+  .wan-card button:active { transform: scale(0.98); }
+  .wan-card button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
+  .status-dot.green { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+  .status-dot.blue { background: #3b82f6; }
+  .status-dot.red { background: #ef4444; }
+  .status-dot.gray { background: #64748b; }
+
+  .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 14px; }
+  .info-item { display: flex; flex-direction: column; gap: 3px; }
+  .info-item .label { font-size: 11px; color: #64748b; text-transform: uppercase; }
+  .info-item .value { font-size: 14px; color: #e2e8f0; word-break: break-word; }
+
+  .filter-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-btn { padding: 10px 16px; background: #1e293b; color: #94a3b8; border: 1px solid #334155; border-radius: 8px; cursor: pointer; font-size: 13px; min-height: 40px; }
+  .filter-btn:hover { color: #e2e8f0; }
+  .filter-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+
+  .devices-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table.devices-table { width: 100%; border-collapse: collapse; min-width: 720px; }
+  table.devices-table th, table.devices-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 13px; }
+  table.devices-table th { color: #94a3b8; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  table.devices-table tr:last-child td { border-bottom: none; }
+
+  .device-cards { display: none; flex-direction: column; gap: 10px; }
+  .device-card { background: #0f172a; border-radius: 10px; padding: 14px; border: 1px solid #334155; }
+  .device-card .dc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
+  .device-card .dc-name { font-size: 15px; font-weight: 600; color: #e2e8f0; flex-grow: 1; word-break: break-word; }
+  .device-card .dc-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+  .device-card .dc-row .dc-label { color: #64748b; }
+  .device-card .dc-row .dc-value { color: #e2e8f0; text-align: right; word-break: break-all; }
+
+  code { font-family: ui-monospace, monospace; font-size: 12px; color: #60a5fa; }
+  .online { color: #22c55e; } .offline { color: #64748b; }
+
+  .signal-good { color: #22c55e; font-weight: 600; }
+  .signal-ok { color: #3b82f6; font-weight: 600; }
+  .signal-weak { color: #f59e0b; font-weight: 600; }
+  .signal-bad { color: #ef4444; font-weight: 600; }
+  .src-badge { display: inline-block; padding: 3px 9px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .src-lan { background: #1e3a8a; color: #93c5fd; }
+  .src-wifi { background: #14532d; color: #86efac; }
+
+  .log-entry { padding: 10px 12px; border-bottom: 1px solid #334155; font-size: 13px; }
+  .log-entry:last-child { border-bottom: none; }
+  .log-time { color: #64748b; font-size: 12px; margin-right: 8px; }
+  .log-topic { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 8px; }
+  .log-topic.critical { background: #7f1d1d; color: #fca5a5; }
+  .log-topic.error { background: #7c2d12; color: #fdba74; }
+  .log-topic.warning { background: #713f12; color: #fde047; }
+  .log-message { color: #cbd5e1; word-break: break-word; }
+
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+  .modal-content { background: #1e293b; padding: 24px; border-radius: 16px; max-width: 500px; width: 100%; max-height: 90vh; overflow-y: auto; }
+  .modal-content h2 { color: #ef4444; margin-bottom: 14px; font-size: 18px; }
+  .modal-content p { color: #cbd5e1; margin-bottom: 14px; font-size: 14px; line-height: 1.5; }
+  .modal-content input { width: 100%; padding: 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; font-size: 16px; margin-bottom: 14px; }
+  .modal-content input:focus { outline: none; border-color: #ef4444; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions button { flex: 1; padding: 14px; border-radius: 8px; cursor: pointer; font-size: 14px; border: none; min-height: 48px; }
+  .modal-cancel { background: #334155; color: #e2e8f0; }
+  .modal-confirm { background: #ef4444; color: white; }
+  .modal-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+  .countdown { text-align: center; font-size: 42px; font-weight: bold; color: #ef4444; margin: 16px 0; }
+
+  .pw-form { display: flex; flex-direction: column; gap: 12px; max-width: 400px; }
+  .pw-form input { padding: 14px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #e2e8f0; font-size: 16px; }
+  .pw-form input:focus { outline: none; border-color: #3b82f6; }
+  .pw-form button { padding: 14px 20px; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; min-height: 48px; }
+  .pw-msg { font-size: 13px; min-height: 18px; }
+  .pw-msg.ok { color: #22c55e; } .pw-msg.err { color: #ef4444; }
+
+  .refresh-info { font-size: 11px; color: #64748b; text-align: right; margin-top: 8px; }
+  .empty { text-align: center; color: #64748b; padding: 30px; font-size: 13px; }
+
+  @media (max-width: 768px) {
+    #panel-screen { padding: 12px; }
+    header h1 { font-size: 16px; }
+    header { align-items: center; }
+    .user-info { gap: 4px; }
+    .user-info #current-user { display: none; }
+    .ping-indicator { padding: 4px 6px; font-size: 10px; }
+    .btn-sm { padding: 8px 12px; font-size: 12px; min-height: 38px; }
+
+    .card { padding: 14px; margin-bottom: 12px; }
+    .card h2 { font-size: 10px; margin-bottom: 12px; }
+
+    .tabs { margin-bottom: 14px; }
+    .tab { padding: 10px 14px; font-size: 13px; }
+
+    .charts { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .chart-circle { width: 100px; height: 100px; }
+    .chart-circle-inner { width: 76px; height: 76px; }
+    .chart-value { font-size: 17px; }
+
+    .wan-cards { grid-template-columns: 1fr; }
+    .info-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+    .devices-table-wrap { display: none; }
+    .device-cards { display: flex; }
+
+    .filter-bar { gap: 6px; }
+    .filter-btn { flex: 1; padding: 10px; font-size: 13px; }
+
+    .modal { padding: 12px; align-items: flex-end; }
+    .modal-content { border-radius: 16px 16px 0 0; max-height: 85vh; }
+    .countdown { font-size: 36px; }
+  }
+
+  @media (max-width: 400px) {
+    header h1 { font-size: 15px; }
+    .ping-indicator { font-size: 10px; padding: 4px 6px; }
+    .chart-circle { width: 90px; height: 90px; }
+    .chart-circle-inner { width: 68px; height: 68px; }
+    .chart-value { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <h1>MikroTik Panel</h1>
+    <p>Управление роутером</p>
+    <div class="field">
+      <label>Логин</label>
+      <input type="text" id="login-user" placeholder="Логин" autocomplete="username" autofocus>
+    </div>
+    <div class="field">
+      <label>Пароль</label>
+      <input type="password" id="login-pass" placeholder="Пароль" autocomplete="current-password">
+    </div>
+    <button class="btn" id="login-btn" onclick="doLogin()">Войти</button>
+    <div class="error" id="login-error"></div>
+  </div>
+</div>
+
+<div id="panel-screen" class="hidden">
+  <header>
+    <h1>MikroTik Panel</h1>
+    <div class="user-info">
+      <span id="ping-indicator-8" class="ping-indicator"><span class="ping-dot"></span>8.8.8.8</span>
+      <span id="ping-indicator-5" class="ping-indicator"><span class="ping-dot"></span>5.255.255.77</span>
+      <span id="current-user"></span>
+      <button class="btn-sm btn-danger" onclick="openRebootModal()">Перезагрузить</button>
+      <button class="btn-sm" onclick="doLogout()">Выйти</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="main" onclick="switchTab('main')">Главная</div>
+    <div class="tab" data-tab="devices" onclick="switchTab('devices')">Устройства</div>
+    <div class="tab" data-tab="logs" onclick="switchTab('logs')">Логи</div>
+    <div class="tab" data-tab="settings" onclick="switchTab('settings')">Настройки</div>
+  </div>
+
+  <div id="tab-main" class="tab-content active">
+    <div class="card">
+      <h2>WAN</h2>
+      <div class="wan-cards" id="wan-cards"></div>
+      <div class="refresh-info" id="wan-refresh"></div>
+    </div>
+
+    <div class="card">
+      <h2>Мониторинг</h2>
+      <div class="charts">
+        <div class="chart-item">
+          <div class="chart-circle" id="cpu-circle">
+            <div class="chart-circle-inner">
+              <div class="chart-value" id="cpu-value">0%</div>
+              <div class="chart-label">CPU</div>
+            </div>
+          </div>
+          <div class="chart-sub" id="cpu-sub">-</div>
+        </div>
+        <div class="chart-item">
+          <div class="chart-circle" id="ram-circle">
+            <div class="chart-circle-inner">
+              <div class="chart-value" id="ram-value">0%</div>
+              <div class="chart-label">RAM</div>
+            </div>
+          </div>
+          <div class="chart-sub" id="ram-sub">-</div>
+        </div>
+        <div class="chart-item">
+          <div class="chart-circle" id="flash-circle">
+            <div class="chart-circle-inner">
+              <div class="chart-value" id="flash-value">0%</div>
+              <div class="chart-label">Flash</div>
+            </div>
+          </div>
+          <div class="chart-sub" id="flash-sub">-</div>
+        </div>
+        <div class="chart-item">
+          <div class="chart-circle" id="usb-circle">
+            <div class="chart-circle-inner">
+              <div class="chart-value" id="usb-value">0%</div>
+              <div class="chart-label">USB</div>
+            </div>
+          </div>
+          <div class="chart-sub" id="usb-sub">-</div>
+        </div>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-item"><span class="label">Версия</span><span class="value" id="info-version">-</span></div>
+        <div class="info-item"><span class="label">Модель</span><span class="value" id="info-board">-</span></div>
+        <div class="info-item"><span class="label">Uptime</span><span class="value" id="info-uptime">-</span></div>
+        <div class="info-item"><span class="label">CPU частота</span><span class="value" id="info-cpufreq">-</span></div>
+      </div>
+      <div class="refresh-info" id="sys-refresh"></div>
+    </div>
+  </div>
+
+  <div id="tab-devices" class="tab-content">
+    <div class="card">
+      <h2>Устройства в сети</h2>
+      <div class="filter-bar">
+        <button class="filter-btn active" data-filter="all" onclick="setDeviceFilter('all')">Все</button>
+        <button class="filter-btn" data-filter="lan" onclick="setDeviceFilter('lan')">LAN</button>
+        <button class="filter-btn" data-filter="wifi" onclick="setDeviceFilter('wifi')">Wi-Fi</button>
+      </div>
+
+      <div class="devices-table-wrap">
+        <table class="devices-table">
+          <thead>
+            <tr>
+              <th>Источник</th><th>Имя</th><th>IP</th><th>MAC</th><th>Интерфейс</th><th>Сигнал</th><th>Скорость</th><th>Last seen</th><th>Статус</th>
+            </tr>
+          </thead>
+          <tbody id="devices-body">
+            <tr><td colspan="9" class="empty">Загрузка...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="device-cards" id="device-cards"></div>
+      <div class="refresh-info" id="dev-refresh"></div>
+    </div>
+  </div>
+
+  <div id="tab-logs" class="tab-content">
+    <div class="card">
+      <h2>Критические события</h2>
+      <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+        <button class="btn-sm" onclick="downloadLogs()">Скачать .txt</button>
+      </div>
+      <div id="logs-list">
+        <div class="empty">Загрузка...</div>
+      </div>
+      <div class="refresh-info" id="logs-refresh"></div>
+    </div>
+  </div>
+
+  <div id="tab-settings" class="tab-content">
+    <div class="card">
+      <h2>Смена пароля панели</h2>
+      <div class="pw-form">
+        <input type="password" id="pw-old" placeholder="Текущий пароль">
+        <input type="password" id="pw-new" placeholder="Новый пароль (мин. 8)">
+        <input type="password" id="pw-new2" placeholder="Повторите новый пароль">
+        <button onclick="changePassword()">Сменить пароль</button>
+        <div class="pw-msg" id="pw-msg"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Перезагрузка роутера</h2>
+      <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px; line-height: 1.6;">
+        Роутер уйдёт в перезагрузку. Все соединения оборвутся. Wi-Fi и интернет пропадут на 1-2 минуты.
+      </p>
+      <button class="btn-sm btn-danger" onclick="openRebootModal()" style="width:100%">Перезагрузить роутер</button>
+    </div>
+
+    <div class="card">
+      <h2>О панели</h2>
+      <div class="info-grid">
+        <div class="info-item"><span class="label">Версия</span><span class="value"><code>1.0.0</code></span></div>
+        <div class="info-item"><span class="label">Сборка</span><span class="value">Go 1.22</span></div>
+        <div class="info-item"><span class="label">Лицензия</span><span class="value">MIT</span></div>
+        <div class="info-item"><span class="label">Обновление</span><span class="value">5-30 сек</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="reboot-modal" class="modal hidden">
+  <div class="modal-content">
+    <h2>⚠️ Перезагрузка роутера</h2>
+    <p>Роутер уйдёт в перезагрузку. Все соединения оборвутся. <strong>Wi-Fi и интернет пропадут на 1-2 минуты.</strong></p>
+    <p>Для подтверждения введите <code>REBOOT</code>:</p>
+    <input type="text" id="reboot-confirm" placeholder="REBOOT" autocomplete="off" autocapitalize="characters">
+    <div class="countdown hidden" id="reboot-countdown">30</div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeRebootModal()">Отмена</button>
+      <button class="modal-confirm" id="reboot-confirm-btn" onclick="startRebootCountdown()" disabled>Перезагрузить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function api(path, method = 'GET', body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin' };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  if (r.status === 401) { showLogin(); throw new Error('unauthorized'); }
+  return r.json();
+}
+
+function showLogin() {
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('panel-screen').classList.add('hidden');
+}
+function showPanel() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('panel-screen').classList.remove('hidden');
+}
+
+async function doLogin() {
+  const user = document.getElementById('login-user').value;
+  const pass = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  document.getElementById('login-btn').disabled = true;
+  try {
+    const r = await fetch('/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ user, pass }),
+    });
+    if (!r.ok) { errEl.textContent = 'Неверный логин или пароль'; return; }
+    showPanel();
+    startAllRefresh();
+  } catch (e) {
+    errEl.textContent = 'Ошибка подключения';
+  } finally {
+    document.getElementById('login-btn').disabled = false;
+  }
+}
+
+async function doLogout() {
+  await fetch('/logout', { method: 'POST', credentials: 'same-origin' });
+  stopAllRefresh();
+  showLogin();
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === 'tab-' + name));
+}
+
+let timers = {};
+function startAllRefresh() {
+  loadMe(); loadPing();
+  loadSystem(); loadDevices(); loadWan(); loadLogs();
+  timers.sys = setInterval(loadSystem, 5000);
+  timers.dev = setInterval(loadDevices, 15000);
+  timers.wan = setInterval(loadWan, 15000);
+  timers.logs = setInterval(loadLogs, 15000);
+  timers.ping = setInterval(loadPing, 30000);
+}
+function stopAllRefresh() {
+  Object.values(timers).forEach(t => clearInterval(t));
+  timers = {};
+}
+
+async function loadMe() {
+  try {
+    const me = await api('/api/me');
+    document.getElementById('current-user').textContent = me.user;
+  } catch (e) {}
+}
+
+async function loadPing() {
+  try {
+    const ping = await api('/api/ping');
+    ping.forEach((p, idx) => {
+      const id = idx === 0 ? 'ping-indicator-8' : 'ping-indicator-5';
+      const el = document.getElementById(id);
+      if (!el) return;
+      const dot = el.querySelector('.ping-dot');
+      dot.className = 'ping-dot ' + (p.alive ? 'up' : 'down');
+      el.title = p.host + (p.alive ? ' - ' + p.latency_ms + 'ms' : ' - недоступен');
+    });
+  } catch (e) {}
+}
+
+function renderCircle(id, pct, color) {
+  const el = document.getElementById(id);
+  const angle = (pct / 100) * 360;
+  el.style.background = `conic-gradient(${color} ${angle}deg, #334155 ${angle}deg)`;
+}
+
+async function loadSystem() {
+  try {
+    const s = await api('/api/system');
+    document.getElementById('cpu-value').textContent = s.cpu_load + '%';
+    renderCircle('cpu-circle', s.cpu_load, s.cpu_load > 80 ? '#ef4444' : s.cpu_load > 50 ? '#f59e0b' : '#22c55e');
+    document.getElementById('cpu-sub').textContent = s.cpu_frequency;
+
+    document.getElementById('ram-value').textContent = s.memory_pct + '%';
+    renderCircle('ram-circle', s.memory_pct, s.memory_pct > 85 ? '#ef4444' : s.memory_pct > 65 ? '#f59e0b' : '#3b82f6');
+    document.getElementById('ram-sub').textContent = s.memory_used_mb.toFixed(1) + ' / ' + s.memory_total_mb.toFixed(1) + ' МБ';
+
+    document.getElementById('flash-value').textContent = s.flash_pct + '%';
+    renderCircle('flash-circle', s.flash_pct, s.flash_pct > 85 ? '#ef4444' : s.flash_pct > 65 ? '#f59e0b' : '#a855f7');
+    document.getElementById('flash-sub').textContent = s.flash_used_mb.toFixed(2) + ' / ' + s.flash_total_mb.toFixed(1) + ' МБ';
+
+    document.getElementById('usb-value').textContent = s.usb_pct + '%';
+    renderCircle('usb-circle', s.usb_pct, s.usb_pct > 85 ? '#ef4444' : s.usb_pct > 65 ? '#f59e0b' : '#14b8a6');
+    document.getElementById('usb-sub').textContent = s.usb_used_mb.toFixed(2) + ' / ' + s.usb_total_mb.toFixed(1) + ' МБ';
+
+    document.getElementById('info-version').textContent = s.version;
+    document.getElementById('info-board').textContent = s.board;
+    document.getElementById('info-uptime').textContent = s.uptime;
+    document.getElementById('info-cpufreq').textContent = s.cpu_frequency;
+    document.getElementById('sys-refresh').textContent = 'Обновлено: ' + new Date().toLocaleTimeString();
+  } catch (e) {}
+}
+
+let cachedLanDevices = [];
+let cachedWifiClients = [];
+let currentFilter = 'all';
+
+async function loadDevices() {
+  try {
+    const [lan, wifi] = await Promise.all([
+      api('/api/devices').catch(() => []),
+      api('/api/wireless').catch(() => []),
+    ]);
+    cachedLanDevices = lan || [];
+    cachedWifiClients = wifi || [];
+    renderDevices();
+    document.getElementById('dev-refresh').textContent = 'Обновлено: ' + new Date().toLocaleTimeString();
+  } catch (e) {}
+}
+
+function signalClass(dbm) {
+  if (dbm >= -50) return 'signal-good';
+  if (dbm >= -65) return 'signal-ok';
+  if (dbm >= -75) return 'signal-weak';
+  return 'signal-bad';
+}
+
+function collectRows() {
+  const wifiMACs = new Set(cachedWifiClients.map(w => w.mac.toLowerCase()));
+  let rows = [];
+  if (currentFilter === 'all' || currentFilter === 'lan') {
+    for (const d of cachedLanDevices) {
+      const isWifi = wifiMACs.has((d.mac || '').toLowerCase());
+      if (isWifi) continue;
+      rows.push({
+        src: 'lan', host: d.hostname || 'none', ip: d.ip || '',
+        mac: d.mac || '', iface: d.interface || '-',
+        signal: 0, rate: '', lastseen: d['last-seen'] || '-', status: d.status || '',
+      });
+    }
+  }
+  if (currentFilter === 'all' || currentFilter === 'wifi') {
+    for (const w of cachedWifiClients) {
+      rows.push({
+        src: 'wifi', host: w.hostname || 'none', ip: w.ip || '',
+        mac: w.mac || '', iface: w.interface || '-',
+        signal: w.signal || 0, rate: w.tx_rate || '', lastseen: '-', status: 'connected',
+      });
+    }
+  }
+  return rows;
+}
+
+function renderDevices() {
+  const rows = collectRows();
+  const tbody = document.getElementById('devices-body');
+  const cardsBox = document.getElementById('device-cards');
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">Нет устройств</td></tr>';
+    cardsBox.innerHTML = '<div class="empty">Нет устройств</div>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const srcBadge = r.src === 'wifi'
+      ? '<span class="src-badge src-wifi">Wi-Fi</span>'
+      : '<span class="src-badge src-lan">LAN</span>';
+    const sigCell = (r.src === 'wifi' && r.signal !== 0)
+      ? `<span class="${signalClass(r.signal)}">${r.signal} dBm</span>`
+      : '—';
+    const statusCell = (r.status === 'bound' || r.status === 'connected')
+      ? `<span class="online">${escapeHtml(r.status)}</span>`
+      : `<span class="offline">${escapeHtml(r.status)}</span>`;
+    return `<tr>
+      <td>${srcBadge}</td>
+      <td>${escapeHtml(r.host)}</td>
+      <td><code>${escapeHtml(r.ip)}</code></td>
+      <td><code>${escapeHtml(r.mac)}</code></td>
+      <td>${escapeHtml(r.iface)}</td>
+      <td>${sigCell}</td>
+      <td>${escapeHtml(r.rate)}</td>
+      <td>${escapeHtml(r.lastseen)}</td>
+      <td>${statusCell}</td>
+    </tr>`;
+  }).join('');
+
+  cardsBox.innerHTML = rows.map(r => {
+    const srcBadge = r.src === 'wifi'
+      ? '<span class="src-badge src-wifi">Wi-Fi</span>'
+      : '<span class="src-badge src-lan">LAN</span>';
+    const sigVal = (r.src === 'wifi' && r.signal !== 0)
+      ? `<span class="${signalClass(r.signal)}">${r.signal} dBm</span>`
+      : '—';
+    return `<div class="device-card">
+      <div class="dc-header">
+        <div class="dc-name">${escapeHtml(r.host)}</div>
+        ${srcBadge}
+      </div>
+      <div class="dc-row"><span class="dc-label">IP</span><span class="dc-value"><code>${escapeHtml(r.ip)}</code></span></div>
+      <div class="dc-row"><span class="dc-label">MAC</span><span class="dc-value"><code>${escapeHtml(r.mac)}</code></span></div>
+      <div class="dc-row"><span class="dc-label">Интерфейс</span><span class="dc-value">${escapeHtml(r.iface)}</span></div>
+      ${r.src === 'wifi' ? `<div class="dc-row"><span class="dc-label">Сигнал</span><span class="dc-value">${sigVal}</span></div>` : ''}
+      ${r.rate ? `<div class="dc-row"><span class="dc-label">Скорость</span><span class="dc-value">${escapeHtml(r.rate)}</span></div>` : ''}
+      <div class="dc-row"><span class="dc-label">Last seen</span><span class="dc-value">${escapeHtml(r.lastseen)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function setDeviceFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
+  renderDevices();
+}
+
+async function loadWan() {
+  try {
+    const data = await api('/api/wan/status');
+    const wans = data.wans || [];
+    const container = document.getElementById('wan-cards');
+    const wanConfig = {
+      wan1: { name: 'WAN1', iface: 'ether1' },
+      wan2: { name: 'WAN2', iface: 'ether2' },
+    };
+    container.innerHTML = ['wan1', 'wan2'].map(key => {
+      const c2 = wanConfig[key];
+      const route = wans.find(w => w.comment === key);
+      let cls = 'notset', statusText = 'Не настроен', dotCls = 'gray', disabled = true;
+      let details = '';
+      if (route) {
+        disabled = false;
+        if (!route.running) { cls = 'down'; statusText = 'Недоступен'; dotCls = 'red'; }
+        else if (route.disabled) { cls = 'notset'; statusText = 'Отключён'; dotCls = 'gray'; }
+        else if (route.active) { cls = 'active'; statusText = 'Активный'; dotCls = 'green'; disabled = true; }
+        else { cls = 'reserve'; statusText = 'Резервный'; dotCls = 'blue'; }
+        details = `<div class="wan-detail">Интерфейс: ${escapeHtml(route.interface || '-')}</div>
+                   <div class="wan-detail">Gateway: ${escapeHtml(route.gateway || '-')}</div>`;
+      } else {
+        details = `<div class="wan-detail">Интерфейс: ${c2.iface}</div>
+                   <div class="wan-detail">Маршрут не найден</div>`;
+      }
+      return `<div class="wan-card ${cls}">
+        <h3><span class="status-dot ${dotCls}"></span>${c2.name}</h3>
+        <div class="status-text">${statusText}</div>
+        ${details}
+        <button onclick="switchWan('${key}')" ${disabled ? 'disabled' : ''}>Переключить</button>
+      </div>`;
+    }).join('');
+    document.getElementById('wan-refresh').textContent = 'Обновлено: ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    document.getElementById('wan-cards').innerHTML = '<div class="empty">Ошибка загрузки WAN</div>';
+  }
+}
+
+async function switchWan(target) {
+  if (!confirm('Переключить WAN на ' + target + '? Интернет может кратковременно прерваться.')) return;
+  try {
+    const res = await api('/api/wan/switch', 'POST', { target });
+    if (res.ok) { loadWan(); } else { alert(res.message || 'Ошибка переключения'); }
+  } catch (e) { alert('Ошибка: ' + e.message); }
+}
+
+let cachedLogs = [];
+async function loadLogs() {
+  try {
+    const logs = await api('/api/logs');
+    cachedLogs = logs;
+    const container = document.getElementById('logs-list');
+    if (!logs || logs.length === 0) {
+      container.innerHTML = '<div class="empty">Нет критических событий</div>';
+    } else {
+      container.innerHTML = logs.map(l => {
+        const cls = l.topics.includes('critical') ? 'critical' :
+                    l.topics.includes('error') ? 'error' : 'warning';
+        return `<div class="log-entry">
+          <span class="log-time">${escapeHtml(l.time)}</span>
+          <span class="log-topic ${cls}">${escapeHtml(l.topics)}</span>
+          <span class="log-message">${escapeHtml(l.message)}</span>
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('logs-refresh').textContent = 'Обновлено: ' + new Date().toLocaleTimeString();
+  } catch (e) {}
+}
+
+function downloadLogs() {
+  if (cachedLogs.length === 0) { alert('Нет логов'); return; }
+  const text = cachedLogs.map(l => `[${l.time}] [${l.topics}] ${l.message}`).join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mikrotik-logs-' + new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-') + '.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function changePassword() {
+  const oldPass = document.getElementById('pw-old').value;
+  const newPass = document.getElementById('pw-new').value;
+  const newPass2 = document.getElementById('pw-new2').value;
+  const msg = document.getElementById('pw-msg');
+  msg.className = 'pw-msg';
+  if (!oldPass || !newPass || !newPass2) { msg.classList.add('err'); msg.textContent = 'Заполните все поля'; return; }
+  if (newPass !== newPass2) { msg.classList.add('err'); msg.textContent = 'Пароли не совпадают'; return; }
+  if (newPass.length < 8) { msg.classList.add('err'); msg.textContent = 'Пароль минимум 8 символов'; return; }
+  try {
+    const r = await fetch('/api/change-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ old_pass: oldPass, new_pass: newPass }),
+    });
+    const data = await r.json();
+    if (!r.ok) { msg.classList.add('err'); msg.textContent = data.error || 'Ошибка'; return; }
+    msg.classList.add('ok');
+    msg.textContent = '✓ Пароль изменён. Перезайдите.';
+    setTimeout(doLogout, 2000);
+  } catch (e) { msg.classList.add('err'); msg.textContent = 'Ошибка сети'; }
+}
+
+function openRebootModal() {
+  document.getElementById('reboot-modal').classList.remove('hidden');
+  document.getElementById('reboot-confirm').value = '';
+  document.getElementById('reboot-confirm-btn').disabled = true;
+  document.getElementById('reboot-countdown').classList.add('hidden');
+}
+function closeRebootModal() {
+  document.getElementById('reboot-modal').classList.add('hidden');
+  if (window.rebootTimer) { clearInterval(window.rebootTimer); window.rebootTimer = null; }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('reboot-confirm');
+  if (inp) inp.addEventListener('input', () => {
+    document.getElementById('reboot-confirm-btn').disabled = inp.value.trim().toUpperCase() !== 'REBOOT';
+  });
+});
+function startRebootCountdown() {
+  document.getElementById('reboot-confirm-btn').disabled = true;
+  document.getElementById('reboot-countdown').classList.remove('hidden');
+  let n = 30;
+  document.getElementById('reboot-countdown').textContent = n;
+  window.rebootTimer = setInterval(() => {
+    n--;
+    document.getElementById('reboot-countdown').textContent = n;
+    if (n <= 0) { clearInterval(window.rebootTimer); doReboot(); }
+  }, 1000);
+}
+async function doReboot() {
+  closeRebootModal();
+  try {
+    await api('/api/reboot', 'POST');
+    alert('Команда перезагрузки отправлена. Роутер уйдёт в ребут через несколько секунд.');
+    setTimeout(() => alert('Роутер перезагружается. Панель вернётся через 1-2 минуты.'), 5000);
+  } catch (e) { alert('Ошибка отправки: ' + e.message); }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+(async function init() {
+  try {
+    const r = await fetch('/api/me', { credentials: 'same-origin' });
+    if (r.ok) { showPanel(); startAllRefresh(); } else { showLogin(); }
+  } catch (e) { showLogin(); }
+})();
+</script>
+</body>
+</html>
