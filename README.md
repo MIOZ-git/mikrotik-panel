@@ -23,7 +23,7 @@
 ### 1. Клонировать
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/mikrotik-panel.git
+git clone https://github.com/MIOZ-git/mikrotik-panel.git
 cd mikrotik-panel
 ```
 
